@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
+import Image from "next/image";
 import { 
   LayoutDashboard, 
   Users, 
@@ -443,7 +444,13 @@ export default function Dashboard({
                         <div key={sched.id} className="flex items-center justify-between bg-slate-900/60 border border-slate-800/40 rounded-xl p-4 hover:border-slate-700/60 transition-all">
                           <div className="flex items-center gap-3.5 min-w-0">
                             {sched.sourceVideoThumbnail && (
-                              <img src={sched.sourceVideoThumbnail} alt="clip thumbnail" className="w-16 h-10 object-cover rounded-lg" />
+                              <Image 
+                                src={sched.sourceVideoThumbnail} 
+                                alt="clip thumbnail" 
+                                width={64} 
+                                height={40} 
+                                className="w-16 h-10 object-cover rounded-lg" 
+                              />
                             )}
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-slate-200 truncate">{sched.clipTitle}</p>
@@ -734,7 +741,13 @@ export default function Dashboard({
                             }`}
                           >
                             {vid.thumbnail && (
-                              <img src={vid.thumbnail} alt="video thumbnail" className="w-24 h-16 object-cover rounded-lg border border-slate-800 flex-shrink-0" />
+                              <Image 
+                                src={vid.thumbnail} 
+                                alt="video thumbnail" 
+                                width={96} 
+                                height={64} 
+                                className="w-24 h-16 object-cover rounded-lg border border-slate-800 flex-shrink-0" 
+                              />
                             )}
                             <div className="min-w-0 flex flex-col justify-between py-0.5">
                               <p className="text-xs font-bold text-slate-200 truncate">{vid.title}</p>
@@ -924,7 +937,12 @@ export default function Dashboard({
                         {/* Thumbnail Header with Status overlay */}
                         <div className="relative h-40 bg-slate-900 border-b border-slate-800">
                           {clip.sourceVideoThumbnail && (
-                            <img src={clip.sourceVideoThumbnail} alt="source thumbnail" className="w-full h-full object-cover" />
+                            <Image 
+                              src={clip.sourceVideoThumbnail} 
+                              alt="source thumbnail" 
+                              fill 
+                              className="object-cover" 
+                            />
                           )}
                           <div className="absolute inset-0 bg-slate-950/40"></div>
                           
@@ -1086,7 +1104,13 @@ export default function Dashboard({
                         <div key={sched.id} className="bg-slate-950/60 border border-slate-800/60 rounded-xl p-5 flex items-center justify-between hover:border-slate-700 transition-all">
                           <div className="flex items-center gap-4 min-w-0">
                             {sched.sourceVideoThumbnail && (
-                              <img src={sched.sourceVideoThumbnail} alt="clip thumbnail" className="w-20 h-12 object-cover rounded-lg border border-slate-800/60 flex-shrink-0" />
+                              <Image 
+                                src={sched.sourceVideoThumbnail} 
+                                alt="clip thumbnail" 
+                                width={80} 
+                                height={48} 
+                                className="w-20 h-12 object-cover rounded-lg border border-slate-800/60 flex-shrink-0" 
+                              />
                             )}
                             <div className="min-w-0">
                               <h4 className="font-bold text-sm text-slate-100 truncate">{sched.clipTitle}</h4>
