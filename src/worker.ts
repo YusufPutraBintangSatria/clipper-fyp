@@ -332,8 +332,13 @@ async function startWorker() {
   console.log("Press Ctrl+C to terminate.");
   console.log("==================================================\n");
 
+  let isProcessing = false;
+
   // Main loop interval
   setInterval(async () => {
+    if (isProcessing) return;
+    isProcessing = true;
+
     try {
       // 1. Check for unrendered clips
       const pendingClips = await db
@@ -351,6 +356,8 @@ async function startWorker() {
 
     } catch (err) {
       console.error("[WORKER] Error in main loop:", err);
+    } finally {
+      isProcessing = false;
     }
   }, 5000); // Check every 5 seconds
 }
