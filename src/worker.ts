@@ -20,7 +20,7 @@ fs.mkdirSync("public/clips", { recursive: true });
 fs.mkdirSync("temp", { recursive: true });
 
 // Helper to format seconds to HH:MM:SS for yt-dlp
-function toHHMMSS(secs: number) {
+export function toHHMMSS(secs: number) {
   const h = Math.floor(secs / 3600).toString().padStart(2, "0");
   const m = Math.floor((secs % 3600) / 60).toString().padStart(2, "0");
   const s = Math.floor(secs % 60).toString().padStart(2, "0");
@@ -28,7 +28,7 @@ function toHHMMSS(secs: number) {
 }
 
 // Promisified child_process.spawn
-function runCommand(command: string, args: string[]): Promise<string> {
+export function runCommand(command: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
     console.log(`[EXEC] Running: ${command} ${args.join(" ")}`);
     const proc = spawn(command, args);
@@ -54,7 +54,7 @@ function runCommand(command: string, args: string[]): Promise<string> {
 }
 
 // Generate Captions and Hashtags using Gemini API
-async function generateAIMetadata(clipTitle: string, videoTitle: string): Promise<{ caption: string; hashtags: string }> {
+export async function generateAIMetadata(clipTitle: string, videoTitle: string): Promise<{ caption: string; hashtags: string }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.log("[AI] No GEMINI_API_KEY found. Skipping AI metadata generation.");
@@ -89,7 +89,7 @@ async function generateAIMetadata(clipTitle: string, videoTitle: string): Promis
 }
 
 // Generate Subtitles (SRT) from Audio using Gemini API
-async function generateAISubtitles(audioPath: string): Promise<string> {
+export async function generateAISubtitles(audioPath: string): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.log("[AI] No GEMINI_API_KEY found. Skipping subtitle transcription.");
@@ -131,7 +131,7 @@ async function generateAISubtitles(audioPath: string): Promise<string> {
 }
 
 // Core function to process a video clip
-async function processClip(clip: any) {
+export async function processClip(clip: any) {
   const tempSegment = path.join("temp", `${clip.id}_temp.mp4`);
   const tempCrop = path.join("temp", `${clip.id}_crop.mp4`);
   const tempAudio = path.join("temp", `${clip.id}_audio.mp3`);
@@ -284,7 +284,7 @@ async function processClip(clip: any) {
 }
 
 // Polling schedules to publish automatically
-async function checkSchedules() {
+export async function checkSchedules() {
   try {
     const now = new Date();
     // Get scheduled uploads
@@ -390,7 +390,7 @@ async function checkSchedules() {
 }
 
 // File cleanup task (runs every 6 hours to clear video files older than 3 days)
-async function runFileCleanup() {
+export async function runFileCleanup() {
   console.log("\n[CLEANUP] Running scheduled video file cleanup task...");
   try {
     const clipsDir = path.join("public", "clips");
@@ -423,7 +423,7 @@ async function runFileCleanup() {
 }
 
 // Background poll loop
-async function startWorker() {
+export async function startWorker() {
   console.log("==================================================");
   console.log("🚀 Auto Clipper Background Worker Active!");
   console.log("Watching for pending / rendering clips & scheduled uploads...");
@@ -466,4 +466,6 @@ async function startWorker() {
   }, 5000); // Check every 5 seconds
 }
 
-startWorker();
+if (process.env.NODE_ENV !== "test") {
+  startWorker();
+}
