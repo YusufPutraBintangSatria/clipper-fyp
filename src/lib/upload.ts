@@ -79,12 +79,12 @@ export async function refreshTikTokToken(accountId: string, refreshToken: string
     if (!res.ok) throw new Error(`TikTok token endpoint returned status ${res.status}`);
     const data = await res.json();
 
-    const accessToken = data.access_token;
-    const expiresSeconds = data.expires_in || 86400; // TikTok tokens usually expire in 24 hours
+    const accessToken = data.data?.access_token || data.access_token;
+    const expiresSeconds = data.data?.expires_in || data.expires_in || 86400; // TikTok tokens usually expire in 24 hours
     const expiresAt = new Date(Date.now() + expiresSeconds * 1000);
 
     // TikTok can also return a new refresh token
-    const newRefreshToken = data.refresh_token || refreshToken;
+    const newRefreshToken = data.data?.refresh_token || data.refresh_token || refreshToken;
 
     // Save back to DB
     await db.update(accounts).set({
@@ -106,7 +106,8 @@ export async function uploadToYouTubeShorts(
   videoPath: string,
   title: string,
   description: string,
-  accessToken: string
+  accessToken: string,
+  categoryId: string = "22" // Default: People & Blogs
 ): Promise<UploadResult> {
   try {
     if (!fs.existsSync(videoPath)) {
@@ -120,7 +121,7 @@ export async function uploadToYouTubeShorts(
       snippet: {
         title: title,
         description: description,
-        categoryId: "22", // People & Blogs
+        categoryId: categoryId,
       },
       status: {
         privacyStatus: "public",

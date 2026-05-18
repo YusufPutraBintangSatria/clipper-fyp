@@ -301,6 +301,7 @@ async function checkSchedules() {
         clipVideoPath: clips.videoPath,
         accountId: accounts.id,
         accountName: accounts.name,
+        accountNiche: accounts.niche,
         accessToken: accounts.accessToken,
         refreshToken: accounts.refreshToken,
         tokenExpiresAt: accounts.tokenExpiresAt,
@@ -352,7 +353,13 @@ async function checkSchedules() {
         const captionWithHashtags = `${clipTitle} ${sched.clipHashtags || ""}`.substring(0, 150);
 
         if (sched.platform === "shorts") {
-          const uploadResult = await uploadToYouTubeShorts(absoluteVideoPath, clipTitle, sched.clipCaption || "", currentToken);
+          let categoryId = "22"; // People & Blogs (Default)
+          const nicheLower = (sched.accountNiche || "").toLowerCase();
+          if (nicheLower.includes("gaming") || nicheLower.includes("game")) categoryId = "20";
+          else if (nicheLower.includes("education") || nicheLower.includes("edukasi") || nicheLower.includes("motivasi")) categoryId = "27";
+          else if (nicheLower.includes("comedy") || nicheLower.includes("komedi") || nicheLower.includes("lucu")) categoryId = "23";
+
+          const uploadResult = await uploadToYouTubeShorts(absoluteVideoPath, clipTitle, sched.clipCaption || "", currentToken, categoryId);
           uploadSuccess = uploadResult.success;
           errorMsg = uploadResult.error || "";
         } else if (sched.platform === "tiktok") {
