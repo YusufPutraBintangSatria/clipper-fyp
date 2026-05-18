@@ -5,6 +5,12 @@ import dotenv from "dotenv";
 import { db } from "./db";
 import { clips, sourceVideos, schedules, accounts } from "./db/schema";
 import { eq, and, lte, isNull } from "drizzle-orm";
+import {
+  refreshYouTubeToken,
+  refreshTikTokToken,
+  uploadToYouTubeShorts,
+  uploadToTikTok,
+} from "./lib/upload";
 
 // Load environment variables
 dotenv.config();
@@ -289,9 +295,15 @@ async function checkSchedules() {
         platform: schedules.platform,
         publishTime: schedules.publishTime,
         clipTitle: clips.title,
+        clipCaption: clips.caption,
+        clipHashtags: clips.hashtags,
         clipStatus: clips.status,
         clipVideoPath: clips.videoPath,
+        accountId: accounts.id,
         accountName: accounts.name,
+        accessToken: accounts.accessToken,
+        refreshToken: accounts.refreshToken,
+        tokenExpiresAt: accounts.tokenExpiresAt,
       })
       .from(schedules)
       .leftJoin(clips, eq(schedules.clipId, clips.id))
@@ -299,7 +311,7 @@ async function checkSchedules() {
       .where(and(eq(schedules.status, "scheduled"), lte(schedules.publishTime, now)));
 
     for (const sched of pendingSchedules) {
-      if (sched.clipStatus !== "ready") {
+      if (sched.clipStatus !== "ready" || !sched.clipVideoPath) {
         console.log(`[SCHEDULE] Clip "${sched.clipTitle}" is scheduled but not yet 'ready' (current status: ${sched.clipStatus}). Skipping...`);
         continue;
       }
@@ -312,15 +324,94 @@ async function checkSchedules() {
       // Update status to publishing
       await db.update(schedules).set({ status: "publishing" }).where(eq(schedules.id, sched.scheduleId));
 
-      // Simulate API call to social media platforms
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      let uploadSuccess = false;
+      let errorMsg = "";
 
-      // Update to published
-      await db.update(schedules).set({ status: "published" }).where(eq(schedules.id, sched.scheduleId));
-      console.log(`[AUTO-UPLOAD] Successfully published schedule ID: ${sched.scheduleId}!`);
+      // Real integration logic if accessToken exists
+      if (sched.accessToken) {
+        let currentToken = sched.accessToken;
+        const accountId = sched.accountId || "";
+        const refreshToken = sched.refreshToken || "";
+        const clipTitle = sched.clipTitle || "Clip";
+
+        // Check if token is expired (or expires in < 5 minutes)
+        if (sched.tokenExpiresAt && new Date(sched.tokenExpiresAt).getTime() - Date.now() < 5 * 60 * 1000 && sched.refreshToken) {
+          console.log(`[AUTO-UPLOAD] Token for ${sched.accountName} is expired or expiring soon. Refreshing...`);
+          let refreshedToken: string | null = null;
+          if (sched.platform === "shorts") {
+            refreshedToken = await refreshYouTubeToken(accountId, refreshToken);
+          } else if (sched.platform === "tiktok") {
+            refreshedToken = await refreshTikTokToken(accountId, refreshToken);
+          }
+          if (refreshedToken) {
+            currentToken = refreshedToken;
+          }
+        }
+
+        const absoluteVideoPath = path.join("public", sched.clipVideoPath.replace(/^\//, ""));
+        const captionWithHashtags = `${clipTitle} ${sched.clipHashtags || ""}`.substring(0, 150);
+
+        if (sched.platform === "shorts") {
+          const uploadResult = await uploadToYouTubeShorts(absoluteVideoPath, clipTitle, sched.clipCaption || "", currentToken);
+          uploadSuccess = uploadResult.success;
+          errorMsg = uploadResult.error || "";
+        } else if (sched.platform === "tiktok") {
+          const uploadResult = await uploadToTikTok(absoluteVideoPath, captionWithHashtags, currentToken);
+          uploadSuccess = uploadResult.success;
+          errorMsg = uploadResult.error || "";
+        }
+      } else {
+        // Fallback simulation
+        console.log(`[AUTO-UPLOAD] No real accessToken found for account ${sched.accountName}. Simulating upload...`);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        uploadSuccess = true;
+      }
+
+      if (uploadSuccess) {
+        // Update to published
+        await db.update(schedules).set({ status: "published" }).where(eq(schedules.id, sched.scheduleId));
+        console.log(`[AUTO-UPLOAD] Successfully published schedule ID: ${sched.scheduleId}!`);
+      } else {
+        // Rollback status to scheduled so it retries on next poll
+        await db.update(schedules).set({ status: "scheduled" }).where(eq(schedules.id, sched.scheduleId));
+        console.error(`[AUTO-UPLOAD] Failed to upload schedule ID: ${sched.scheduleId}. Error: ${errorMsg}`);
+      }
     }
   } catch (error) {
     console.error("[SCHEDULE] Error checking schedules:", error);
+  }
+}
+
+// File cleanup task (runs every 6 hours to clear video files older than 3 days)
+async function runFileCleanup() {
+  console.log("\n[CLEANUP] Running scheduled video file cleanup task...");
+  try {
+    const clipsDir = path.join("public", "clips");
+    if (!fs.existsSync(clipsDir)) return;
+
+    const files = fs.readdirSync(clipsDir);
+    const now = Date.now();
+    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+
+    let deletedCount = 0;
+
+    for (const file of files) {
+      if (file === ".gitkeep" || !file.endsWith(".mp4")) continue;
+
+      const filePath = path.join(clipsDir, file);
+      const stats = fs.statSync(filePath);
+      const fileAge = now - stats.mtime.getTime();
+
+      if (fileAge > threeDaysMs) {
+        console.log(`[CLEANUP] Deleting expired video file: ${file} (Age: ${(fileAge / 1000 / 60 / 60 / 24).toFixed(1)} days)`);
+        fs.unlinkSync(filePath);
+        deletedCount++;
+      }
+    }
+
+    console.log(`[CLEANUP] Cleanup finished. Deleted ${deletedCount} file(s).\n`);
+  } catch (error) {
+    console.error("[CLEANUP] Error during file cleanup:", error);
   }
 }
 
@@ -334,7 +425,13 @@ async function startWorker() {
 
   let isProcessing = false;
 
-  // Main loop interval
+  // Run cleanup task once immediately on startup
+  runFileCleanup();
+
+  // Run cleanup task every 6 hours
+  setInterval(runFileCleanup, 6 * 60 * 60 * 1000);
+
+  // Main loop interval for video rendering & auto upload polling
   setInterval(async () => {
     if (isProcessing) return;
     isProcessing = true;

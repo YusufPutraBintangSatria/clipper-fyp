@@ -7,6 +7,9 @@ export const accounts = sqliteTable("accounts", {
   niche: text("niche").notNull(), // e.g. "Gaming", "Motivasi", "YouTuber A"
   type: text("type").notNull(),  // e.g. "specific", "random"
   targetPlatform: text("target_platform").notNull(), // e.g. "tiktok", "shorts", "all"
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  tokenExpiresAt: integer("token_expires_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).default(sql`CURRENT_TIMESTAMP`),
 });
 
