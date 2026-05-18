@@ -6,6 +6,11 @@ import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 // --- Accounts Actions ---
+/**
+ * Mengambil seluruh data akun dari database (SQLite).
+ * Diurutkan berdasarkan tanggal pembuatan (terbaru di atas).
+ * @returns {Promise<Array>} Array data akun.
+ */
 export async function getAccounts() {
   try {
     return await db.select().from(accounts).orderBy(desc(accounts.createdAt));
@@ -15,6 +20,11 @@ export async function getAccounts() {
   }
 }
 
+/**
+ * Mendaftarkan akun target baru ke database.
+ * Fungsi ini meng-generate UUID otomatis.
+ * @param formData - Data form berisi nama, niche, tipe, dan target platform.
+ */
 export async function createAccount(formData: {
   name: string;
   niche: string;
@@ -39,6 +49,10 @@ export async function createAccount(formData: {
   }
 }
 
+/**
+ * Menghapus akun berdasarkan ID-nya.
+ * @param id - ID string unik akun yang ingin dihapus.
+ */
 export async function deleteAccount(id: string) {
   try {
     await db.delete(accounts).where(eq(accounts.id, id));
@@ -51,6 +65,9 @@ export async function deleteAccount(id: string) {
 }
 
 // --- Source Videos Actions ---
+/**
+ * Mengambil seluruh daftar video mentah (Source Video) dari database.
+ */
 export async function getSourceVideos() {
   try {
     return await db.select().from(sourceVideos).orderBy(desc(sourceVideos.createdAt));
@@ -60,6 +77,11 @@ export async function getSourceVideos() {
   }
 }
 
+/**
+ * Mendaftarkan URL video asli dari platform seperti YouTube/TikTok.
+ * Otomatis menghitung durasi ke dalam detik dan mengekstrak thumbnail YouTube.
+ * @param formData - Berisi url, title, string durasi (misal "15:30"), dan author.
+ */
 export async function addSourceVideo(formData: {
   url: string;
   title: string;
@@ -103,6 +125,10 @@ export async function addSourceVideo(formData: {
 }
 
 // --- Clips Actions ---
+/**
+ * Mengambil seluruh riwayat klip potongan video.
+ * Menggabungkan (JOIN) metadata dari tabel sourceVideos dan accounts.
+ */
 export async function getClips() {
   try {
     return await db
@@ -130,6 +156,10 @@ export async function getClips() {
   }
 }
 
+/**
+ * Membuat data antrean klip/potongan video baru.
+ * Saat dibuat, default status adalah "pending" yang nantinya akan diproses oleh Background Worker.
+ */
 export async function createClip(formData: {
   sourceVideoId: string;
   accountId: string;
@@ -162,6 +192,10 @@ export async function createClip(formData: {
   }
 }
 
+/**
+ * Memperbarui status klip (misal: "pending" -> "rendering" -> "ready").
+ * Berfungsi sebagai titik komunikasi status antara Worker dan UI Dashboard.
+ */
 export async function updateClipStatus(id: string, status: string, videoPath?: string) {
   try {
     await db
@@ -177,6 +211,10 @@ export async function updateClipStatus(id: string, status: string, videoPath?: s
 }
 
 // --- Schedules Actions ---
+/**
+ * Mengambil antrean jadwal tayang/upload video.
+ * Menggabungkan metadata dengan clips, sourceVideos, dan accounts.
+ */
 export async function getSchedules() {
   try {
     return await db
@@ -200,6 +238,10 @@ export async function getSchedules() {
   }
 }
 
+/**
+ * Mendaftarkan jadwal baru (waktu unggah otomatis) untuk klip tertentu.
+ * Background worker akan rutin mengecek waktu `publishTime` vs waktu saat ini.
+ */
 export async function createSchedule(formData: {
   clipId: string;
   publishTime: Date;
